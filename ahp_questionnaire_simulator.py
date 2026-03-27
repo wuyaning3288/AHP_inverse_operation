@@ -1,23 +1,3 @@
-第一个剧本相关：
-https://claude.ai/share/5f3de64d-d1e0-4016-b84f-f35a0f392f8c
-
-Ahp计算相关：
- https://claude.ai/share/1b750f4f-589a-4edc-9903-c233c6cb30b9
-
-剪辑工具使用：https://claude.ai/share/3d34c477-342b-4874-ac3b-21738a0c6431
-报告更改：https://claude.ai/share/38247c6c-87ba-440a-a373-7bb7657f9d59
-
-电影：https://chatgpt.com/gg/v/69b9704227d4819ea7d9132d5bbd1231?token=tnDn4WzJlRvCDKBoc3Mbeg
-
-https://chatgpt.com/share/69b983e1-bb34-8005-81c0-b6c64ce11b49
-
-剧本写作：https://chatgpt.com/share/69b98420-2f50-8005-ae1b-0f41d170345b
-电影申请：
-Renbaoshou:https://chatgpt.com/share/69b98598-8328-8005-9485-eb3b51b0d4cc
-银河：:https://chatgpt.com/share/69b983e1-bb34-8005-81c0-b6c64ce11b49
-你能把ahp的正向整体运算逻辑描述一遍吗 从问卷收集到生成每个指标的权重值，类似说明文档那样
-
-
 import streamlit as st
 import numpy as np
 import pandas as pd

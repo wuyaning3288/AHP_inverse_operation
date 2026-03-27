@@ -1,10 +1,11 @@
 """
-AHP问卷模拟生成器 - 改进版（完整可运行版）
+AHP问卷模拟生成器 - 完整修复版
 
-已包含改动：
-1. 修复Excel兼容性问题，降低“打开报错后修复”的风险
-2. 支持在网页中自定义指标名称
-3. Excel模块汇总增加“指标名称”一行
+本版本已解决：
+1. Excel 打开提示修复（公式记录被删除）的问题
+2. 支持网页自定义指标名称
+3. Excel 模块汇总增加“指标名称”一行
+4. 网页预览改成与 Excel 最后模块汇总一致的样式
 """
 
 import math
@@ -83,9 +84,13 @@ def normalize_module_config(modules):
         elif isinstance(config, dict):
             if "weights" not in config:
                 raise ValueError(f"模块 {module_name} 缺少 weights")
-            weights = [float(w) for w in config["weights"]]
 
+            weights = [float(w) for w in config["weights"]]
             indicators = config.get("indicators", [f"指标{i+1}" for i in range(len(weights))])
+
+            if not isinstance(indicators, list):
+                raise ValueError(f"模块 {module_name} 的 indicators 必须是列表")
+
             if len(indicators) != len(weights):
                 raise ValueError(f"模块 {module_name} 的 indicators 和 weights 长度不一致")
 
@@ -95,6 +100,7 @@ def normalize_module_config(modules):
             }
         else:
             raise ValueError(f"模块 {module_name} 格式错误")
+
     return normalized
 
 
@@ -151,9 +157,9 @@ def gen_candidates(target_weights, top_keep=120):
     t = np.array(target_weights, dtype=float)
     if t.sum() <= 0:
         raise ValueError("target_weights sum must be > 0")
+
     t = t / t.sum()
     n = len(t)
-
     order = np.argsort(t)
     cands = []
 
@@ -198,7 +204,6 @@ def best_k_mean(
 
     W = np.stack([p[2] for p in pool], axis=0)
     target_sum = k * t
-
     beam = [(float(np.linalg.norm(target_sum)), np.zeros_like(t), tuple())]
 
     for _ in range(k):
@@ -249,7 +254,6 @@ def generate_judgment_matrix_from_scores(scores):
                 A[i, j] = float((s_i - s_j) + 1)
                 A[j, i] = 1.0 / A[i, j]
 
-    # 重新排列回原始顺序
     A_original = np.zeros((n, n))
     for i, (orig_i, _) in enumerate(ranked):
         for j, (orig_j, _) in enumerate(ranked):
@@ -304,12 +308,9 @@ def auto_adjust_columns(ws, min_width=10, max_width=28):
         col_letter = col_cells[0].column_letter
         max_len = 0
         for cell in col_cells:
-            value = cell.value
-            if value is None:
+            if cell.value is None:
                 continue
-            value_len = len(str(value))
-            if value_len > max_len:
-                max_len = value_len
+            max_len = max(max_len, len(str(cell.value)))
         ws.column_dimensions[col_letter].width = min(max(max_len + 2, min_width), max_width)
 
 
@@ -319,7 +320,6 @@ def write_questionnaire_to_sheet(ws, questionnaire_data, module_name, indicator_
 
     scores = questionnaire_data["scores"]
     n = len(scores)
-
     matrix = generate_judgment_matrix_from_scores(scores)
     calc = calculate_ahp_detailed(matrix)
 
@@ -328,7 +328,6 @@ def write_questionnaire_to_sheet(ws, questionnaire_data, module_name, indicator_
     header_fill = PatternFill("solid", fgColor="D9E1F2")
     center = Alignment(horizontal="center", vertical="center")
 
-    # 模块标题
     ws.cell(current_row, 1, f"{module_name}")
     ws.cell(current_row, 1).font = Font(bold=True, size=14)
     current_row += 1
@@ -337,7 +336,6 @@ def write_questionnaire_to_sheet(ws, questionnaire_data, module_name, indicator_
     ws.cell(current_row, 2, int(n))
     current_row += 2
 
-    # 权重计算标题行
     ws.cell(current_row, 6, "权重计算")
     ws.cell(current_row, 6).font = header_bold
     ws.cell(current_row, 9, "列向量归一化")
@@ -354,7 +352,6 @@ def write_questionnaire_to_sheet(ws, questionnaire_data, module_name, indicator_
     ws.cell(current_row, 9 + n + 5).font = header_bold
     current_row += 1
 
-    # 表头行
     header_row = current_row
     ws.cell(header_row, 1, "决策目标")
     ws.cell(header_row, 1).font = header_bold
@@ -384,7 +381,6 @@ def write_questionnaire_to_sheet(ws, questionnaire_data, module_name, indicator_
 
     current_row += 1
 
-    # 数据行
     for i in range(n):
         data_row = current_row + i
 
@@ -396,10 +392,7 @@ def write_questionnaire_to_sheet(ws, questionnaire_data, module_name, indicator_
             val = to_excel_number(calc["matrix"][i, j])
             ws.cell(data_row, 2 + j, val)
             ws.cell(data_row, 2 + j).alignment = center
-            if val == 1:
-                ws.cell(data_row, 2 + j).number_format = "0"
-            else:
-                ws.cell(data_row, 2 + j).number_format = "0.00"
+            ws.cell(data_row, 2 + j).number_format = "0" if val == 1 else "0.00"
 
         ws.cell(data_row, 2 + n + 1, to_excel_number(calc["row_products"][i]))
         ws.cell(data_row, 2 + n + 1).number_format = "0.0000"
@@ -432,7 +425,6 @@ def write_questionnaire_to_sheet(ws, questionnaire_data, module_name, indicator_
 
     current_row += n + 2
 
-    # 问卷结果汇总
     ws.cell(current_row, 2, "No")
     ws.cell(current_row, 3, "Indicator")
     ws.cell(current_row, 4, "Score(1-5)")
@@ -460,7 +452,6 @@ def write_questionnaire_to_sheet(ws, questionnaire_data, module_name, indicator_
 
     current_row += n + 2
 
-    # 一致性检验
     ws.cell(current_row, 1, "一致性检测结果")
     ws.cell(current_row, 1).font = bold
     current_row += 1
@@ -494,7 +485,6 @@ def write_questionnaire_to_sheet(ws, questionnaire_data, module_name, indicator_
 def write_module_complete(ws, module_data, module_name, indicator_names):
     """写入一个模块的所有问卷完整计算过程"""
     current_row = 1
-
     chosen = module_data["chosen"]
     k = len(chosen)
 
@@ -514,9 +504,10 @@ def write_module_complete(ws, module_data, module_name, indicator_names):
             current_row
         )
 
-    # 汇总信息
     current_row += 1
-    ws.cell(current_row, 1, "=" * 80)
+
+    # 不再使用 "=" * 80，避免被Excel识别为非法公式
+    ws.cell(current_row, 1, "模块分隔线")
     ws.cell(current_row, 1).font = Font(bold=True, size=12)
     current_row += 1
 
@@ -524,7 +515,6 @@ def write_module_complete(ws, module_data, module_name, indicator_names):
     ws.cell(current_row, 1).font = Font(bold=True, size=12)
     current_row += 1
 
-    # 新增：指标名称行
     ws.cell(current_row, 1, "指标名称：")
     ws.cell(current_row, 1).font = Font(bold=True)
     for i, name in enumerate(indicator_names):
@@ -603,9 +593,13 @@ def generate_excel_bytes(modules: dict, k=3, top_keep=80, cr_threshold=0.1,
     return output
 
 
-def build_module_df_k(module_config, k=3, top_keep=80, cr_threshold=0.1,
-                      beam_width=200, allow_replacement=False):
-    """构建单个模块的 DataFrame 结果（用于 streamlit 预览）"""
+# =========================
+# 网页预览：改成 Excel 最后汇总样式
+# =========================
+
+def build_module_summary_matrix_df(module_config, k=3, top_keep=80, cr_threshold=0.1,
+                                   beam_width=200, allow_replacement=False):
+    """构建更接近 Excel 底部横向布局的预览表"""
     target_weights = module_config["weights"]
     indicator_names = module_config["indicators"]
 
@@ -618,37 +612,32 @@ def build_module_df_k(module_config, k=3, top_keep=80, cr_threshold=0.1,
         allow_replacement=allow_replacement
     )
 
-    n = len(t)
-    df = pd.DataFrame({
-        "No": list(range(1, n + 1)),
-        "Indicator": indicator_names,
-        "Target weight": t
-    })
-
     crs = [c[3] for c in chosen]
     overall = "通过" if all(cr <= cr_threshold for cr in crs) else "不通过"
 
-    for qi, cand in enumerate(chosen, start=1):
-        df[f"Q{qi} Score"] = cand[1]
-        df[f"Q{qi} Weight"] = cand[2]
-        df[f"Q{qi} CR"] = [cand[3]] * n
-
-    df["一致性检验是否通过(CR<0.1)"] = [overall] * n
-    df["Mean weight"] = mean_w
-    df["Abs err"] = np.abs(mean_w - t)
+    matrix_df = pd.DataFrame(
+        [
+            indicator_names,
+            [f"{x:.2%}" for x in mean_w],
+            [f"{x:.2%}" for x in t],
+            [f"{abs(mean_w[i] - t[i]):.4f}" for i in range(len(t))]
+        ],
+        index=["指标名称", "平均权重", "目标权重", "绝对误差"]
+    )
 
     summary = {
         "k": k,
         "best_mean_L2": float(dist),
-        "mean_abs_error": float(df["Abs err"].mean()),
-        "max_abs_error": float(df["Abs err"].max()),
+        "mean_abs_error": float(np.mean(np.abs(mean_w - t))),
+        "max_abs_error": float(np.max(np.abs(mean_w - t))),
         "Overall": overall,
     }
+
     for qi, cr in enumerate(crs, start=1):
         summary[f"Q{qi}_CR"] = float(cr)
         summary[f"Q{qi}_pass"] = consistency_label(cr, cr_threshold)
 
-    return df, summary
+    return matrix_df, summary
 
 
 # =========================
@@ -660,7 +649,6 @@ st.set_page_config(page_title="AHP问卷模拟生成器", page_icon="🎯", layo
 st.title("🎯 AHP问卷模拟生成器")
 st.markdown("自动生成 k 份问卷，使平均权重最接近目标权重")
 
-# 侧边栏参数
 st.sidebar.header("⚙️ 全局参数")
 k_value = st.sidebar.slider("问卷份数 (k)", min_value=1, max_value=20, value=7, help="生成多少份问卷")
 cr_threshold = st.sidebar.slider("CR阈值", min_value=0.05, max_value=0.20, value=0.10, step=0.01,
@@ -671,7 +659,6 @@ beam_width = st.sidebar.number_input("Beam宽度", min_value=50, max_value=1000,
                                      help="Beam search的搜索宽度")
 allow_replacement = st.sidebar.checkbox("允许重复选择同一问卷", value=False)
 
-# 主界面：模块输入
 st.header("📝 模块配置")
 
 if "modules" not in st.session_state:
@@ -682,14 +669,12 @@ if "modules" not in st.session_state:
         },
     }
 
-# 保证历史 session 旧格式也能兼容
 st.session_state.modules = normalize_module_config(st.session_state.modules)
 
 tab1, tab2 = st.tabs(["📋 表格输入", "💻 JSON输入"])
 
 with tab1:
     st.markdown("### 当前模块")
-
     modules_to_delete = []
 
     for module_name in list(st.session_state.modules.keys()):
@@ -798,7 +783,6 @@ with tab2:
             except Exception as e:
                 st.error(f"❌ JSON格式错误: {str(e)}")
 
-# 生成按钮
 st.markdown("---")
 st.header("🚀 生成问卷")
 
@@ -843,7 +827,7 @@ with col3:
                     for module_name, module_config in st.session_state.modules.items():
                         with st.expander(f"🗂️ {module_name}", expanded=True):
                             try:
-                                df, summary = build_module_df_k(
+                                preview_matrix_df, summary = build_module_summary_matrix_df(
                                     module_config,
                                     k=k_value,
                                     top_keep=top_keep,
@@ -858,7 +842,8 @@ with col3:
                                 metric_cols[2].metric("L2距离", f"{summary['best_mean_L2']:.6f}")
                                 metric_cols[3].metric("一致性检验", summary["Overall"])
 
-                                st.dataframe(df, use_container_width=True)
+                                st.markdown("#### 模块汇总预览")
+                                st.dataframe(preview_matrix_df, use_container_width=True)
 
                             except Exception as e:
                                 st.error(f"❌ 模块 {module_name} 生成失败: {str(e)}")
@@ -869,9 +854,10 @@ with col3:
 with st.expander("📖 使用说明"):
     st.markdown("""
 ### 当前版本改进
-- ✅ 修复 Excel 打开兼容性问题（更稳）
+- ✅ 修复 Excel 打开兼容性问题（去掉非法公式触发点）
 - ✅ 支持网页中自定义指标名称
 - ✅ Excel 模块汇总增加“指标名称”一行
+- ✅ 网页预览改成 Excel 最后模块汇总样式
 - ✅ 展示完整的 AHP 计算过程
 - ✅ 每个问卷独立展示计算过程
 
@@ -883,4 +869,4 @@ with st.expander("📖 使用说明"):
 """)
 
 st.markdown("---")
-st.caption("💡 AHP问卷模拟生成器 - 改进版 | 完整计算过程展示")
+st.caption("💡 AHP问卷模拟生成器 - 完整修复版 | 完整计算过程展示")

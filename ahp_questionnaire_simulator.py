@@ -1,3 +1,14 @@
+“””
+AHP问卷模拟生成器 - 改进版
+展示完整的AHP计算过程（类似原始Excel格式）
+
+主要改动：
+
+1. 删除顶部两行summary
+1. 展示完整AHP计算过程：判断矩阵、权重计算、列归一化、特征值等
+1. 每个问卷独立展示计算过程
+   “””
+
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -14,6 +25,7 @@ RI_TABLE = {
 }
 
 def ahp_from_scores(scores, nos=None):
+“”“AHP计算：从scores生成判断矩阵并计算权重”””
 if nos is None:
 nos = list(range(len(scores)))
 items = list(zip(nos, scores))
@@ -712,7 +724,15 @@ allow_replacement=allow_replacement
 
 with st.expander(“📖 使用说明”):
 st.markdown(”””
+### 改进说明
 
+```
+**新版Excel格式：**
+- ✅ 删除了顶部两行summary
+- ✅ 展示完整的AHP计算过程
+- ✅ 包含：判断矩阵、按行相乘、开n次方、归一化、列向量归一化、A*W、特征值、一致性检验
+- ✅ 每个问卷独立展示计算过程
+- ✅ 格式类似原始AHP计算Excel
 
 ### 如何使用？
 
@@ -724,4 +744,4 @@ st.markdown(”””
 ```
 
 st.markdown(”—”)
-st.caption(“💡 AHP问卷模拟生成器 ”)
+st.caption(“💡 AHP问卷模拟生成器 - 改进版 | 完整计算过程展示”)

@@ -839,11 +839,10 @@ with col3:
 
                     st.markdown("---")
                     st.subheader("📊 生成结果预览")
-
                     for module_name, module_config in st.session_state.modules.items():
                         with st.expander(f"🗂️ {module_name}", expanded=True):
                             try:
-                                df, summary = build_module_df_k(
+                                preview_df, summary = build_module_summary_preview_df(
                                     module_config,
                                     k=k_value,
                                     top_keep=top_keep,
@@ -858,11 +857,17 @@ with col3:
                                 metric_cols[2].metric("L2距离", f"{summary['best_mean_L2']:.6f}")
                                 metric_cols[3].metric("一致性检验", summary["Overall"])
 
-                                st.dataframe(df, use_container_width=True)
+                                # 按Excel最终汇总样式显示
+                                display_df = preview_df.copy()
+                                display_df["平均权重"] = display_df["平均权重"].map(lambda x: f"{x:.2%}")
+                                display_df["目标权重"] = display_df["目标权重"].map(lambda x: f"{x:.2%}")
+                                display_df["绝对误差"] = display_df["绝对误差"].map(lambda x: f"{x:.4f}")
+
+                                st.markdown("#### 模块汇总预览")
+                                st.dataframe(display_df, use_container_width=True, hide_index=True)
 
                             except Exception as e:
                                 st.error(f"❌ 模块 {module_name} 生成失败: {str(e)}")
-
                 except Exception as e:
                     st.error(f"❌ 生成失败: {str(e)}")
 

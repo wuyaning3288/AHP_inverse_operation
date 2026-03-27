@@ -14,7 +14,6 @@ RI_TABLE = {
 }
 
 def ahp_from_scores(scores, nos=None):
-“”“AHP计算：从scores生成判断矩阵并计算权重”””
 if nos is None:
 nos = list(range(len(scores)))
 items = list(zip(nos, scores))
